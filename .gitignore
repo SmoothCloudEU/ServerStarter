@@ -1,10 +1,17 @@
 # User-specific stuff
-.idea/
 *.ipr
 *.iws
+logs/
+plugins/
+world*
+*.json
+*.properties
+*.txt
+*.yml
 
 # IntelliJ
 out/
+.idea/
 
 # Compiled class file
 *.class
