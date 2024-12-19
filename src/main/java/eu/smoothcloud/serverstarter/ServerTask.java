@@ -74,6 +74,7 @@ public class ServerTask {
                 Thread.currentThread().interrupt();
             }
         }
+        this.serverMap.remove(uniqueId);
         this.processMap.remove(uniqueId);
         this.serverIdFutureMap.remove(uniqueId);
     }
