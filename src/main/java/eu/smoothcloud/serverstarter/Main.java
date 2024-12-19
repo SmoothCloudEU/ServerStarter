@@ -10,10 +10,13 @@ public class Main {
     private static final ServiceRegistry registry = new ServiceRegistry();
 
     public static void main(String[] args) {
-        Server server = new Server(UUID.randomUUID(),
-                "Lobby-1", "Lobby",
+        Server server = new Server(
+                UUID.randomUUID(),
+                "Lobby-1",
+                "Lobby",
                 "",
-                8084, "",
+                8084,
+                "",
                 "server.jar",
                 10,
                 "",
@@ -23,7 +26,8 @@ public class Main {
                 128,
                 1024,
                 false,
-                false);
+                false
+        );
 
         while (true) {
             Scanner scanner = new Scanner(System.in);
@@ -34,10 +38,10 @@ public class Main {
                     registry.registerService(server);
                     break;
                 case "shutdown":
-                    registry.unregisterService(server);
+                    registry.unregisterService(server.getUniqueId());
                     break;
                 case "ex":
-                    registry.unregisterService(server);
+                    registry.unregisterService(server.getUniqueId());
                     System.exit(0);
                     break;
                 default:

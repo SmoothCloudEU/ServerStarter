@@ -14,12 +14,11 @@ public class ServiceRegistry extends ServerTask {
         if (services.putIfAbsent(uniqueId, server) != null) {
             return;
         }
-        start(server);
+        start(uniqueId, server);
     }
 
-    public void unregisterService(Server server) {
-        UUID uniqueId = server.getUniqueId();
-        stop(server);
+    public void unregisterService(UUID uniqueId) {
+        stop(uniqueId);
         services.remove(uniqueId);
     }
 
