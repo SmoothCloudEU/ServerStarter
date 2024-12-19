@@ -4,6 +4,7 @@ import eu.smoothcloud.serverstarter.utils.Server;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ServiceRegistry extends ServerTask {
 
@@ -45,10 +46,21 @@ public class ServiceRegistry extends ServerTask {
     /**
      * Retrieves a registered service by its unique ID.
      *
-     * @param uniqueId The unique ID of the server.
+     * @param name The name of the server.
      * @return The server instance if found, otherwise null.
      */
-    public Server getService(UUID uniqueId) {
-        return services.get(uniqueId);
+    public Server getService(String name) {
+        AtomicReference<Server> atomicServer = new AtomicReference<>();
+        for (Server server : this.services.values()) {
+            if (server.getName().equalsIgnoreCase(name)) {
+                atomicServer.set(server);
+                break;
+            }
+        }
+        return atomicServer.get();
+    }
+
+    public ConcurrentHashMap<UUID, Server> getServices() {
+        return services;
     }
 }
