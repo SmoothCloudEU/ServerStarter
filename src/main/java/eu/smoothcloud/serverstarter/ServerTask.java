@@ -124,17 +124,30 @@ public class ServerTask {
      * @param command  The command to execute.
      */
     public void execute(UUID uniqueId, String command) {
-        if (!this.serverMap.containsKey(uniqueId) || !this.processMap.containsKey(uniqueId) || this.serverIdFutureMap.get(uniqueId) == null) {
+        if (!this.serverMap.containsKey(uniqueId) ||
+                !this.processMap.containsKey(uniqueId) ||
+                this.serverIdFutureMap.get(uniqueId) == null) {
             System.out.println("No active process found for UUID: " + uniqueId);
             return;
         }
-        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(this.processMap.get(uniqueId).getOutputStream()))) {
+
+        Process process = this.processMap.get(uniqueId);
+
+        if (process == null || !process.isAlive()) {
+            System.out.println("Process is no longer alive for UUID: " + uniqueId);
+            return;
+        }
+
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()))) {
             writer.write(command);
             writer.flush();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("Error writing to process stream: " + e.getMessage());
+            throw new RuntimeException("Failed to execute command for UUID: " + uniqueId, e);
         }
     }
+
+
 
     /**
      * Builds the command string for the server process.
