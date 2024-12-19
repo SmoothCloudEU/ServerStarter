@@ -6,7 +6,6 @@ import java.util.Scanner;
 import java.util.UUID;
 
 public class Main {
-
     private static final ServiceRegistry registry = new ServiceRegistry();
 
     public static void main(String[] args) {
@@ -30,26 +29,29 @@ public class Main {
         );
 
         while (true) {
+            System.out.println(server);
+
             Scanner scanner = new Scanner(System.in);
             String command = scanner.nextLine();
 
             switch (command.toLowerCase()) {
                 case "start":
                     registry.registerService(server);
+                    System.out.println("Server started");
                     break;
                 case "shutdown":
                     registry.unregisterService(server.getUniqueId());
+                    System.out.println("Server shutdown");
                     break;
                 case "ex":
                     registry.unregisterService(server.getUniqueId());
+                    System.out.println("Server exited");
                     System.exit(0);
                     break;
                 default:
                     System.out.println("Unknown command");
             }
-
         }
-
     }
 }
 
