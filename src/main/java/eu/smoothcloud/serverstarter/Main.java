@@ -29,29 +29,23 @@ public class Main {
         );
 
         while (true) {
-            System.out.println(server);
-
+            System.out.print("serverstarter » ");
             Scanner scanner = new Scanner(System.in);
-            String command = scanner.nextLine();
-
+            String command = scanner.nextLine().trim();
             switch (command.toLowerCase()) {
-                case "start":
-                    registry.registerService(server);
-                    System.out.println("Server started");
-                    break;
-                case "shutdown":
-                    registry.unregisterService(server.getUniqueId());
-                    System.out.println("Server shutdown");
-                    break;
-                case "ex":
-                    registry.unregisterService(server.getUniqueId());
-                    System.out.println("Server exited");
+                case "start" ->
+                        registry.registerService(server);
+                case "shutdown" ->
+                        registry.unregisterService(server.getUniqueId());
+                case "ex" -> {
+                    if (registry.getService(server.getUniqueId()) != null) {
+                        registry.unregisterService(server.getUniqueId());
+                    }
                     System.exit(0);
-                    break;
-                default:
+                }
+                default ->
                     System.out.println("Unknown command");
             }
         }
     }
 }
-
