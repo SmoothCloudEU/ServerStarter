@@ -21,30 +21,30 @@ public class ServerTask {
      * @param server   The server instance.
      */
     public void start(UUID uniqueId, Server server) {
-        if (serverMap.containsKey(uniqueId) || processMap.containsKey(uniqueId)) {
+        if (this.serverMap.containsKey(uniqueId) || this.processMap.containsKey(uniqueId)) {
             return;
         }
 
         String command = buildCommand(server);
         ProcessBuilder processBuilder = new ProcessBuilder(command.split(" "));
-        processLogs.put(uniqueId, new StringBuilder());
+        this.processLogs.put(uniqueId, new StringBuilder());
 
-        Future<?> future = executorService.submit(() -> {
+        Future<?> future = this.executorService.submit(() -> {
             try {
                 Process process = processBuilder.start();
-                serverMap.put(uniqueId, server);
-                processMap.put(uniqueId, process);
+                this.serverMap.put(uniqueId, server);
+                this.processMap.put(uniqueId, process);
 
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                     String line;
-                    StringBuilder logBuilder = processLogs.get(uniqueId);
+                    StringBuilder logBuilder = this.processLogs.get(uniqueId);
 
                     while ((line = reader.readLine()) != null) {
                         if (logBuilder == null) {
                             return;
                         }
                         synchronized (logBuilder) {
-                            logBuilder.append("[").append(server.getName().toUpperCase()).append("]")
+                            logBuilder.append("[").append(server.getName()).append("]")
                                     .append(line).append(System.lineSeparator());
                         }
                     }
@@ -54,11 +54,12 @@ public class ServerTask {
             } catch (IOException | InterruptedException e) {
                 Thread.currentThread().interrupt();
             } finally {
-                cleanupResources(uniqueId);
+                this.cleanupResources(uniqueId);
+                System.out.println("[ServerTask] " + uniqueId + " cleaned");
             }
         });
 
-        serverIdFutureMap.put(uniqueId, future);
+        this.serverIdFutureMap.put(uniqueId, future);
     }
 
     /**
@@ -67,37 +68,39 @@ public class ServerTask {
      * @param uniqueId The unique ID of the server.
      */
     public void stop(UUID uniqueId) {
-        Future<?> future = serverIdFutureMap.get(uniqueId);
+        Future<?> future = this.serverIdFutureMap.get(uniqueId);
+        Process process = this.processMap.get(uniqueId);
+
         if (future != null) {
             future.cancel(true);
         }
 
-        Process process = processMap.get(uniqueId);
         if (process == null || !process.isAlive()) {
             System.out.println("No active process found for UUID: " + uniqueId);
             return;
         }
 
         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()))) {
-            String stopCommand = serverMap.get(uniqueId).isProxy() ? "end\n" : "stop\n";
-            write(writer, stopCommand);
+            String stopCommand = this.serverMap.get(uniqueId).isProxy() ? "end\n" : "stop\n";
+            this.write(writer, stopCommand);
 
             if (process.waitFor(10, TimeUnit.SECONDS)) {
                 System.out.println("Process terminated gracefully.");
-                return;
+            } else {
+                System.out.println("Process did not terminate within timeout. Forcibly terminating...");
+                process.destroyForcibly();
             }
-
-            System.out.println("Process did not terminate within timeout. Forcibly terminating...");
-            process.destroyForcibly();
         } catch (IOException e) {
             System.err.println("Failed to send stop command: " + e.getMessage());
         } catch (InterruptedException e) {
             System.err.println("Stop operation interrupted. Attempting to terminate process...");
             Thread.currentThread().interrupt();
+        } finally {
+            this.cleanupResources(uniqueId);
+            System.out.println("[ServerTask] " + uniqueId + " cleaned");
         }
-
-        cleanupResources(uniqueId);
     }
+
 
     /**
      * Displays logs of a server process.
@@ -105,7 +108,7 @@ public class ServerTask {
      * @param uniqueId The unique ID of the server.
      */
     public void showLogs(UUID uniqueId) {
-        StringBuilder logs = processLogs.get(uniqueId);
+        StringBuilder logs = this.processLogs.get(uniqueId);
         if (logs == null) {
             System.out.println("No logs available for server: " + uniqueId);
             return;
@@ -121,13 +124,15 @@ public class ServerTask {
      * @param command  The command to execute.
      */
     public void execute(UUID uniqueId, String command) {
-        if (!serverMap.containsKey(uniqueId) || !processMap.containsKey(uniqueId) || serverIdFutureMap.get(uniqueId) == null) {
+        if (!this.serverMap.containsKey(uniqueId) || !this.processMap.containsKey(uniqueId) || this.serverIdFutureMap.get(uniqueId) == null) {
+            System.out.println("No active process found for UUID: " + uniqueId);
             return;
         }
-        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(processMap.get(uniqueId).getOutputStream()))) {
-            write(writer, command);
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(this.processMap.get(uniqueId).getOutputStream()))) {
+            writer.write(command);
+            writer.flush();
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
@@ -138,6 +143,7 @@ public class ServerTask {
      * @return The complete command string.
      */
     private String buildCommand(Server server) {
+        System.out.println("[ServerTask] " + server.getName() + " building command");
         return (server.getJavaPath().isEmpty() ? "java" : server.getJavaPath()) +
                 " -Xms" + server.getMinimumMemory() + "M" +
                 " -Xmx" + server.getMaximumMemory() + "M" +
@@ -166,9 +172,9 @@ public class ServerTask {
      * @param uniqueId The unique ID of the server.
      */
     private void cleanupResources(UUID uniqueId) {
-        serverMap.remove(uniqueId);
-        processMap.remove(uniqueId);
-        serverIdFutureMap.remove(uniqueId);
-        processLogs.remove(uniqueId);
+        this.serverMap.remove(uniqueId);
+        this.processMap.remove(uniqueId);
+        this.serverIdFutureMap.remove(uniqueId);
+        this.processLogs.remove(uniqueId);
     }
 }

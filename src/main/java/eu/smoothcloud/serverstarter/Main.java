@@ -36,7 +36,6 @@ public class Main {
                         }
                         System.out.println("Server is not running.");
                     }
-
                     case "exec" -> {
                         if (arguments.isEmpty()) {
                             System.out.println("Please provide a command to execute.");

@@ -21,9 +21,9 @@ public class ServiceRegistry extends ServerTask {
         if (services.putIfAbsent(uniqueId, server) == null) {
             start(uniqueId, server);
             System.out.printf("Successfully registered service with ID: %s%n", uniqueId);
-        } else {
-            System.out.printf("Service with ID: %s is already registered.%n", uniqueId);
+            return;
         }
+        System.out.printf("Service with ID: %s is already registered.%n", uniqueId);
     }
 
     /**
@@ -37,9 +37,9 @@ public class ServiceRegistry extends ServerTask {
         if (services.remove(uniqueId) != null) {
             stop(uniqueId);
             System.out.printf("Successfully unregistered service with ID: %s%n", uniqueId);
-        } else {
-            System.out.printf("No service found with ID: %s to unregister.%n", uniqueId);
+            return;
         }
+        System.out.printf("No service found with ID: %s to unregister.%n", uniqueId);
     }
 
     /**
