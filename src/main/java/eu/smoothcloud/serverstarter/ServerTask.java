@@ -80,24 +80,28 @@ public class ServerTask {
             return;
         }
 
-        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()))) {
-            String stopCommand = this.serverMap.get(uniqueId).isProxy() ? "end\n" : "stop\n";
-            this.write(writer, stopCommand);
+        synchronized (process) {
+            OutputStream outputStream = process.getOutputStream();
+            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream))) {
+                String stopCommand = this.serverMap.get(uniqueId).isProxy() ? "end\n" : "stop\n";
+                writer.write(stopCommand + "\n");
+                writer.flush();
 
-            if (process.waitFor(10, TimeUnit.SECONDS)) {
-                System.out.println("Process terminated gracefully.");
-            } else {
-                System.out.println("Process did not terminate within timeout. Forcibly terminating...");
-                process.destroyForcibly();
+                if (process.waitFor(10, TimeUnit.SECONDS)) {
+                    System.out.println("Process terminated gracefully.");
+                } else {
+                    System.out.println("Process did not terminate within timeout. Forcibly terminating...");
+                    process.destroyForcibly();
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to send stop command: " + e.getMessage());
+            } catch (InterruptedException e) {
+                System.err.println("Stop operation interrupted. Attempting to terminate process...");
+                Thread.currentThread().interrupt();
+            } finally {
+                this.cleanupResources(uniqueId);
+                System.out.println("[ServerTask] " + uniqueId + " cleaned");
             }
-        } catch (IOException e) {
-            System.err.println("Failed to send stop command: " + e.getMessage());
-        } catch (InterruptedException e) {
-            System.err.println("Stop operation interrupted. Attempting to terminate process...");
-            Thread.currentThread().interrupt();
-        } finally {
-            this.cleanupResources(uniqueId);
-            System.out.println("[ServerTask] " + uniqueId + " cleaned");
         }
     }
 
@@ -124,29 +128,28 @@ public class ServerTask {
      * @param command  The command to execute.
      */
     public void execute(UUID uniqueId, String command) {
-        if (!this.serverMap.containsKey(uniqueId) ||
-                !this.processMap.containsKey(uniqueId) ||
-                this.serverIdFutureMap.get(uniqueId) == null) {
-            System.out.println("No active process found for UUID: " + uniqueId);
+        if (this.processMap.get(uniqueId) == null || !this.processMap.get(uniqueId).isAlive()) {
+            System.err.println("Skipping cleanup for non-alive process: " + uniqueId);
             return;
         }
 
         Process process = this.processMap.get(uniqueId);
-
         if (process == null || !process.isAlive()) {
             System.out.println("Process is no longer alive for UUID: " + uniqueId);
             return;
         }
 
-        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()))) {
-            writer.write(command);
-            writer.flush();
-        } catch (IOException e) {
-            System.err.println("Error writing to process stream: " + e.getMessage());
-            throw new RuntimeException("Failed to execute command for UUID: " + uniqueId, e);
+        synchronized (process) {
+            OutputStream outputStream = process.getOutputStream();
+            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream))) {
+                writer.write(command + "\n");
+                writer.flush();
+            } catch (IOException e) {
+                System.err.println("Error writing to process stream: " + e.getMessage());
+                throw new RuntimeException("Failed to execute command for UUID: " + uniqueId, e);
+            }
         }
     }
-
 
 
     /**
@@ -168,26 +171,20 @@ public class ServerTask {
     }
 
     /**
-     * Writes a command to the server process.
-     *
-     * @param writer  The BufferedWriter to write to.
-     * @param message The message to send to the server.
-     * @throws IOException If an I/O error occurs.
-     */
-    private void write(BufferedWriter writer, String message) throws IOException {
-        writer.write(message);
-        writer.flush();
-    }
-
-    /**
      * Cleans up resources associated with a server.
      *
      * @param uniqueId The unique ID of the server.
      */
     private void cleanupResources(UUID uniqueId) {
+        Process process = this.processMap.get(uniqueId);
+        if (process != null && process.isAlive()) {
+            System.err.println("Attempting to clean up resources for a live process: " + uniqueId);
+            return;
+        }
         this.serverMap.remove(uniqueId);
         this.processMap.remove(uniqueId);
         this.serverIdFutureMap.remove(uniqueId);
         this.processLogs.remove(uniqueId);
     }
+
 }
